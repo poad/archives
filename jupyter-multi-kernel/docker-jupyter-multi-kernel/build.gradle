@@ -1,0 +1,56 @@
+apply plugin: 'java'
+
+group = 'org.jupyther'
+version = '1.0-SNAPSHOT'
+project.ext {
+  artifactId = 'jupyter-kernel-jsr223'
+}
+
+sourceCompatibility = 9
+targetCompatibility = 9
+
+repositories {
+  mavenCentral()
+  jcenter()
+}
+
+dependencies {
+  compile 'commons-cli:commons-cli:1.4'
+  compile 'commons-io:commons-io:2.6'
+  compile 'org.zeromq:jeromq:0.3.6'
+  
+  compile 'org.json:json:20171018'
+
+  compile 'com.sun.xml.bind:jaxb-impl:2.3.0-b170127.1453'
+  compile 'javax.xml.bind:jaxb-api:2.3.0-b170201.1204'
+
+  testCompile("org.junit.vintage:junit-vintage-engine:4.12.2")
+}
+
+
+tasks.withType(Test) {
+  doFirst {
+    jvmArgs = [
+      '--add-modules', 'java.xml.bind',
+      '--add-modules', 'jeromq',
+      '--add-modules', 'json',
+      '--add-modules', 'java.logging',
+      '--add-modules', 'java.scripting',
+      '--add-modules', 'jdk.jshell',
+      '--add-modules', 'commons_io',
+      '--add-modules', 'commons_cli',
+    ]
+  }
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": "org.jupyterkernel.kernel.Session"
+    }
+ 
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+
