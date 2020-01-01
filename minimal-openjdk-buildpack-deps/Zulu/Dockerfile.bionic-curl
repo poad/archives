@@ -1,0 +1,43 @@
+ARG JAVA_VERSION="11.0.5_10"
+ARG MINIMAL_OUTPUT="/opt/jdk-${JAVA_VERSION}-mini-runtime"
+
+FROM poad/docker-openjdk11:zulu-bionic as jlink-package
+
+ARG MINIMAL_OUTPUT
+
+USER root
+
+RUN jlink \
+     --module-path ${JAVA_HOME}/jmods \
+     --compress=2 \
+     --add-modules jdk.jfr,jdk.management.agent,java.base,java.logging,java.xml,jdk.unsupported,java.sql,java.naming,java.desktop,java.management,java.security.jgss,java.instrument \
+     --no-header-files \
+     --no-man-pages \
+     --output ${MINIMAL_OUTPUT}
+
+FROM buildpack-deps:bionic-curl
+
+LABEL maintainer="Kenji Saito<ken-yo@mbr.nifty.com>"
+
+ARG JAVA_VERSION
+ARG MINIMAL_OUTPUT
+
+ENV JAVA_HOME /usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64-mini-runtime
+COPY --from=jlink-package ${MINIMAL_OUTPUT} ${JAVA_HOME}
+
+ENV PATH "${JAVA_HOME}/bin:${PATH}"
+
+RUN for tool_path in ${JAVA_HOME}/bin/*; do \
+          tool=`basename $tool_path` \
+       && update-alternatives --install /usr/bin/$tool $tool $tool_path 10000 \
+       && update-alternatives --set $tool $tool_path; \
+    done
+
+HEALTHCHECK CMD [ "java", "-version" ]
+
+RUN groupadd -g 1000 java \
+ && useradd -g 1000 -l -m -s /bin/false -u 1000 java
+
+USER java
+
+ENTRYPOINT [ "java" ]

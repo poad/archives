@@ -1,0 +1,1 @@
+# minimal-openjdk-buildpack-deps
