@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+set -eux
+
+echo "------ HOOK START - BUILD -------"
+printenv
+
+if [ "${DOCKERFILE_PATH}" = "" ]; then
+    DOCKERFILE_PATH_ARG=""
+else
+    DOCKERFILE_PATH_ARG="-f ${DOCKERFILE_PATH}"
+fi
+
+DOCKER_CONTENT_TRUST=1
+
+BASE_TAG=$(basename ${DOCKERFILE_PATH} | cut -f 2 -d ".")
+
+docker build --build-arg BASE_TAG=${DOCKER_TAG} \
+    --build-arg GRADLE_VERSION="6.0.1" \
+    --build-arg GRADLE_SHA256="d364b7098b9f2e58579a3603dc0a12a1991353ac58ed339316e6762b21efba44" \
+    --build-arg BASE_TAG=${BASE_TAG} \
+    ${DOCKERFILE_PATH_ARG} -t $IMAGE_NAME .
+
+echo "------ HOOK END - BUILD -------"

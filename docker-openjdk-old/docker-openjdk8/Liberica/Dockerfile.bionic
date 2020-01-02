@@ -1,0 +1,65 @@
+ARG JAVA_MAJOR_VERSION="8"
+ARG JAVA_REVISION="232"
+ARG ESUM="0EFCEFD6A5AC229B5308C563A235A68D68EAD00F"
+ARG JAVA_VERSION="${JAVA_MAJOR_VERSION}u${JAVA_REVISION}"
+ARG JAVA_HOME="/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64"
+
+FROM buildpack-deps:bionic-curl as downloader
+
+RUN rm -rf /var/lib/apt/lists/* && apt-get clean && apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      ca-certificates-java \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG JAVA_MAJOR_VERSION
+ARG JAVA_VERSION
+ARG ESUM
+ARG JAVA_URL="https://download.bell-sw.com/java/${JAVA_VERSION}/bellsoft-jdk${JAVA_VERSION}-linux-amd64.tar.gz"
+ARG JAVA_HOME
+
+ENV JAVA_HOME ${JAVA_HOME}
+
+RUN curl -Lso /tmp/openjdk.tar.gz ${JAVA_URL} \
+ && sha1sum /tmp/openjdk.tar.gz \
+ && mkdir -p ${JAVA_HOME} \
+ && cd ${JAVA_HOME} \
+ && echo "${ESUM}  /tmp/openjdk.tar.gz" | sha1sum -c - \
+ && tar -xf /tmp/openjdk.tar.gz \
+ && jdir=$(dirname $(dirname $(find ${JAVA_HOME} -name javac))) \
+ && mv ${jdir}/* ${JAVA_HOME} \
+ && rm -rf ${jdir} /tmp/openjdk.tar.gz \
+ && rm ${JAVA_HOME}/jre/lib/security/cacerts \
+ && cp -p /etc/ssl/certs/java/cacerts ${JAVA_HOME}/jre/lib/security/cacerts
+
+ENV PATH "${JAVA_HOME}/bin:${PATH}"
+
+FROM ubuntu:bionic
+
+LABEL maintenar="Kenji Saito <ken-yo@mbr.nifty.com>"
+
+ARG JAVA_MAJOR_VERSION
+ARG JAVA_VERSION
+ARG JAVA_HOME
+
+ENV JAVA_HOME ${JAVA_HOME}
+
+COPY --from=downloader ${JAVA_HOME} ${JAVA_HOME}
+
+ENV PATH "${JAVA_HOME}/bin:${PATH}"
+
+RUN for tool_path in ${JAVA_HOME}/bin/*; do \
+          tool=`basename $tool_path` \
+       && update-alternatives --install /usr/bin/$tool $tool $tool_path 10000 \
+       && update-alternatives --set $tool $tool_path; \
+    done
+
+HEALTHCHECK CMD [ "java", "-version" ]
+
+RUN groupadd -g 1000 java \
+ && useradd -g 1000 -l -m -s /bin/false -u 1000 java
+
+USER java
+
+ENTRYPOINT [ "java" ]
+CMD [ "-version" ]

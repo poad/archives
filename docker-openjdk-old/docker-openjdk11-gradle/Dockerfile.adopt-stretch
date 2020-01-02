@@ -1,0 +1,56 @@
+# ------------------------------------------------------------------------------
+#               NOTE: THIS DOCKERFILE IS GENERATED VIA "update.sh"
+#
+#                       PLEASE DO NOT EDIT IT DIRECTLY.
+# ------------------------------------------------------------------------------
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+ARG GRADLE_VERSION="6.0.1"
+ARG GRADLE_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
+ARG GRADLE_SHA256="d364b7098b9f2e58579a3603dc0a12a1991353ac58ed339316e6762b21efba44"
+ARG BASE_TAG
+
+FROM buildpack-deps:xenial-curl AS downloader
+
+ARG GRADLE_VERSION
+ARG GRADLE_URL
+ARG GRADLE_SHA256
+
+WORKDIR /tmp
+RUN apt-get update -qq \
+ && apt-get install -qqy --no-install-recommends unzip \
+ && curl -Lso /tmp/gradle.zip ${GRADLE_URL} \
+ && sha256sum /tmp/gradle.zip \
+ && echo "${GRADLE_SHA256}  /tmp/gradle.zip" | sha256sum -c - \
+ && unzip /tmp/gradle.zip
+
+
+FROM poad/docker-openjdk11:${BASE_TAG}
+
+LABEL maintenar="Kenji Saito <ken-yo@mbr.nifty.com>"
+
+ARG GRADLE_VERSION
+
+ENV GRADLE_HOME /usr/lib/gradle
+
+USER root
+
+COPY  --from=downloader /tmp/gradle-${GRADLE_VERSION} ${GRADLE_HOME}
+
+USER java
+
+ENV PATH "${GRADLE_HOME}/bin:$PATH"
+
+ENTRYPOINT [ "gradle" ]
+CMD [ "-version" ]

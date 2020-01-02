@@ -1,0 +1,66 @@
+ARG JAVA_MAJOR_VERSION="11"
+ARG JAVA_MINOR_REVISION="0.5"
+ARG JAVA_REVISION="10"
+ARG JAVA_BRANCH_NUMBER="1"
+ARG ESUM="d732b6ece7b1c8117753ba8460dfaede"
+ARG JAVA_VERSION="${JAVA_MAJOR_VERSION}.${JAVA_MINOR_REVISION}.${JAVA_REVISION}.${JAVA_BRANCH_NUMBER}"
+ARG JAVA_HOME="/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64"
+
+FROM buildpack-deps:bionic-curl as downloader
+
+RUN rm -rf /var/lib/apt/lists/* && apt-get clean && apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      ca-certificates-java \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG JAVA_MAJOR_VERSION
+ARG JAVA_VERSION
+ARG ESUM
+ARG JAVA_URL="https://d3pxv6yz143wms.cloudfront.net/${JAVA_VERSION}/amazon-corretto-${JAVA_VERSION}-linux-x64.tar.gz"
+ARG JAVA_HOME
+
+ENV JAVA_HOME ${JAVA_HOME}
+
+RUN curl -Lso /tmp/openjdk.tar.gz ${JAVA_URL} \
+ && md5sum /tmp/openjdk.tar.gz \
+ && mkdir -p ${JAVA_HOME} \
+ && cd ${JAVA_HOME} \
+ && echo "${ESUM}  /tmp/openjdk.tar.gz" | md5sum -c - \
+ && tar -xf /tmp/openjdk.tar.gz \
+ && jdir=$(dirname $(dirname $(find ${JAVA_HOME} -name javac))) \
+ && mv ${jdir}/* ${JAVA_HOME} \
+ && rm -rf ${jdir} /tmp/openjdk.tar.gz \
+ && rm ${JAVA_HOME}/lib/security/cacerts \
+ && cp -p /etc/ssl/certs/java/cacerts ${JAVA_HOME}/lib/security/cacerts
+
+ENV PATH "${JAVA_HOME}/bin:${PATH}"
+
+FROM ubuntu:bionic
+
+LABEL maintenar="Kenji Saito <ken-yo@mbr.nifty.com>"
+
+ARG JAVA_MAJOR_VERSION
+ARG JAVA_VERSION
+ARG JAVA_HOME
+
+ENV JAVA_HOME ${JAVA_HOME}
+ENV PATH "${JAVA_HOME}/bin:${PATH}"
+
+COPY --from=downloader ${JAVA_HOME} ${JAVA_HOME}
+
+RUN for tool_path in ${JAVA_HOME}/bin/*; do \
+          tool=`basename $tool_path` \
+       && update-alternatives --install /usr/bin/$tool $tool $tool_path 10000 \
+       && update-alternatives --set $tool $tool_path; \
+    done
+
+HEALTHCHECK CMD [ "java", "-version" ]
+
+RUN groupadd -g 1000 java \
+ && useradd -g 1000 -l -m -s /bin/false -u 1000 java
+
+USER java
+
+ENTRYPOINT [ "java" ]
+CMD [ "-version" ]

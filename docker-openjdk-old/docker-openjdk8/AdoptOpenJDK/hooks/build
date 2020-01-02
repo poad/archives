@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+set -eux
+
+echo "------ HOOK START - BUILD -------"
+printenv
+
+if [ "${DOCKERFILE_PATH}" = "" ]; then
+    DOCKERFILE_PATH_ARG=""
+else
+    DOCKERFILE_PATH_ARG="-f ${DOCKERFILE_PATH}"
+fi
+
+DOCKER_CONTENT_TRUST=1
+
+docker build --build-arg BASE_TAG=${DOCKER_TAG} \
+    --build-arg JAVA_MAJOR_VERSION="8" \
+    --build-arg JAVA_UPDATE="232" \
+    --build-arg JAVA_BUILD_NUMBER="09" \
+    --build-arg ESUM="7b7884f2eb2ba2d47f4c0bf3bb1a2a95b73a3a7734bd47ebf9798483a7bcc423" \
+    ${DOCKERFILE_PATH_ARG} -t ${IMAGE_NAME} .
+
+echo "------ HOOK END - BUILD -------"
